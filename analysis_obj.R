@@ -2,6 +2,9 @@
 #' 
 #' Contains constructors for the `proteomics_data` class.
 
+library(tidyverse)
+library(forcats)
+
 ###############################################################################
 # class definitions, as suggested as best practice in "Advanced R"
 
@@ -189,6 +192,52 @@ filter_data_group_id <- function(p_df, df_filter) {
     p_df, annotation, 
     has_tech_repl = attr(p_df, 'has_tech_repl'), is_log2 = TRUE)
 }
+
+# filter data by groups
+filter_data_group <- function(p_df, groups) {
+  # check inputs
+  p_df <- validate_proteomics_data(p_df)
+
+  # filter data
+  p_df <- p_df %>%
+    inner_join(attr(p_df, 'annotation'), by='label') %>%
+    filter(group %in% groups)
+  # filter annotation
+  annotation <- attr(p_df, 'annotation') %>%
+    filter(group %in% groups)
+  
+  proteomics_data(
+    p_df, annotation, 
+    has_tech_repl = attr(p_df, 'has_tech_repl'), is_log2 = TRUE)
+}
+
+deconstruct_groups <- function(p_df) {
+  # check inputs
+  p_df <- validate_proteomics_data(p_df)
+  annotation <- attr(p_df, 'annotation')
+
+  sets <- p_df %>%
+    inner_join(annotation, by='label') %>%
+    mutate(group = factor(group) %>% fct_infreq %>% fct_rev) %>%
+    select(id, group) %>%
+    distinct %>%
+    arrange(group) %>%
+    group_by(id) %>%
+    summarise(set = str_c(group, collapse = '__'),
+              .groups = 'drop')
+  
+  sets %>%
+    count(set) %>% 
+    arrange(-n) %>%
+    pull(set) %>%
+    set_names %>%
+    map(function(s) {
+      sets %>%
+        filter(set == s) %>%
+        pull(id)
+    })
+}
+  
 
 # TODO function that remove label or group from df and annotation
 # TODO? function that collapses biological replicates

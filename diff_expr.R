@@ -160,3 +160,39 @@ construct_contrasts_control <- function(p_df, cntrl_group) {
   tibble(a = all_groups[!all_groups == cntrl_group],
          b = cntrl_group)
 }
+
+###############################################################################
+# helper function
+
+# construct info whether comparisons are based on value-value, value-imput, 
+# or imput-imput
+diff_type <- function(p_df, contrasts) {
+  # check inputs
+  p_df <- validate_proteomics_data(p_df)
+  
+  contrasts %>%
+    pmap(function(a,b) {
+      p_df %>%
+        filter_data_group(c(a, b)) %>%
+        inner_join(attr(p_df, 'annotation'), by = 'label') %>%
+        select(id, group) %>%
+        distinct %>%
+        group_by(id) %>%
+        summarise(diff_type = case_when(all(c(a, b) %in% group) ~ 'value_value',
+                                        a %in% group ~ 'value_imput',
+                                        b %in% group ~ 'imput_value',
+                                        T ~ NA_character_),
+        # summarise(diff_type = case_when(n() == 1 ~ 'value_imput',
+        #                                 n() == 2 ~ 'value_value',
+        #                                 T ~ NA_character_),
+                  contrast = str_glue('{make.names(a)} - {make.names(b)}'),
+                  .groups = 'drop')
+      
+        
+    }) %>%
+    bind_rows %>%
+    pivot_wider(names_from = contrast, values_from = diff_type, 
+                values_fill = 'imput_imput') %>%
+    pivot_longer(-id, names_to = 'contrast', values_to = 'diff_type') %>%
+    select(contrast, id, diff_type)
+}

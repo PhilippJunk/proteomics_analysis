@@ -1,4 +1,5 @@
 library(tidyverse)
+library(patchwork)
 library(broom)
 library(UpSetR)
 
@@ -41,6 +42,32 @@ vis_pca <- function(p_df) {
 # }
 
 ###############################################################################
+vis_qc_scatter <- function(p_df) {
+  # check inputs
+  p_df <- validate_proteomics_data(p_df)
+  labels <- attr(p_df, 'annotation') %>%
+    pull(label) %>%
+    unique %>%
+    sort
+  
+  expand_grid(l1 = labels, l2 = labels) %>%
+    pmap(function(l1, l2) {
+      df1 <- p_df %>% 
+        filter(label == l1) %>%
+        rename(LFQ_1 = LFQ)
+      df2 <- p_df %>%
+        filter(label == l2) %>%
+        rename(LFQ_2 = LFQ)
+      inner_join(df1, df2, by='id') %>%
+        ggplot(aes(x = LFQ_2, y = LFQ_1)) +
+          geom_point() +
+          geom_abline(slope=1, intercept=0) +
+          labs(x = l2, y = l1)
+    }) %>%
+    wrap_plots(ncol = length(labels), nrow = length(labels), byrow=T)
+}
+
+###############################################################################
 vis_qc_histo <- function(p_df) {
   # check inputs
   p_df <- validate_proteomics_data(p_df)
@@ -69,11 +96,42 @@ vis_upset <- function(p_df) {
   p_df <- validate_proteomics_data(p_df)
   annotation <- attr(p_df, 'annotation')
   
+  nsets <- annotation$group %>% unique %>% length
+  nintersects = 2^nsets
+  
   p_df %>%
     inner_join(annotation, 'label') %>%
-    count(group, id, name = 'count') %>%
-    transmute(group = group, id = id, present = 1) %>% 
+    select(group, id) %>%
+    distinct %>%
+    mutate(present = 1) %>%
     pivot_wider(names_from = group, values_from = present, values_fill = 0) %>% 
     as.data.frame %>% 
-    upset(sets = annotation %>% pull(group) %>% unique, order.by = "freq")
+    upset(sets = annotation %>% pull(group) %>% unique, 
+          order.by = "freq",
+          nsets = nsets,
+          nintersects = nintersects)
 }
+
+vis_upset_ch <- function(p_df) {
+  # check inputs
+  p_df <- validate_proteomics_data(p_df)
+  annotation <- attr(p_df, 'annotation')
+  
+  combination_matrix <- inner_join(
+    p_df, annotation, by = 'label') %>%
+    group_by(group) %>%
+    nest %>%
+    mutate(data = set_names(data, group)) %>%
+    pull(data) %>%
+    map(function(df) {
+      df %>%
+        pull(id) %>%
+        unique
+    }) %>%
+    ComplexHeatmap::make_comb_mat()
+  
+  ComplexHeatmap::UpSet(
+    combination_matrix, 
+    comb_order = order(-ComplexHeatmap::comb_size(combination_matrix)))
+}
+
