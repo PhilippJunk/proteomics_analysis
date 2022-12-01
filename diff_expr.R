@@ -161,6 +161,18 @@ construct_contrasts_control <- function(p_df, cntrl_group) {
          b = cntrl_group)
 }
 
+# construct all pairwise contrasts
+construct_contrasts_all <- function(p_df) {
+  # check inputs
+  p_df <- validate_proteomics_data(p_df)
+  all_groups <- unique(attr(p_df, 'annotation')$group)
+  
+  combn(all_groups, 2) %>% 
+    t %>% 
+    as_tibble(.name_repair = 'unique') %>% 
+    rename(a = '...1', b = '...2')
+}
+
 ###############################################################################
 # helper function
 
