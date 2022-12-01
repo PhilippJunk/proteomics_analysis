@@ -34,7 +34,7 @@ validate_proteomics_data <- function(proteomics_data) {
   df <- as_tibble(proteomics_data)
   annotation <- attr(proteomics_data, 'annotation')
   has_tech_repl <- attr(proteomics_data, 'has_tech_repl')
-  
+
   if (!inherits(proteomics_data, 'proteomics_data')) {
     stop('Please provide an object of class `proteomics_data` as input. ', 
          'For more information, see `?proteomics_data`.',
@@ -74,7 +74,13 @@ validate_proteomics_data <- function(proteomics_data) {
     }
   }
   
-  if (any(is.na(df$LFQ) | df$LFQ < 0)) {
+  if (any(is.na(df$LFQ))) {
+    stop('LFQ intensities must be non-missing.',
+         call. = FALSE)
+    
+  }
+      
+  if (any(df$LFQ < 0)) {
     stop('LFQ intensities must be non-missing and greater than zero.',
          call. = FALSE)
   }
@@ -139,11 +145,21 @@ proteomics_data <- function(
     mutate(group = make.names(group),
            label = make.names(label))
   
-  validate_proteomics_data(new_proteomics_data(df, annotation, has_tech_repl))
+  validate_proteomics_data(new_proteomics_data(
+    df, annotation,has_tech_repl))
 }
 
 ###############################################################################
 # helper functions
+
+# wrapper around inner join with annotation attr
+join_annotation <- function(p_df) {
+  # check inputs
+  p_df <- validate_proteomics_data(p_df)
+  
+  p_df %>%
+    inner_join(attr(p_df, 'annotation'), by = 'label')
+}
 
 # safely collapsing technical replicates
 collapse_tech_repl <- function(p_df) {
@@ -208,6 +224,23 @@ filter_data_group <- function(p_df, groups) {
   
   proteomics_data(
     p_df, annotation, 
+    has_tech_repl = attr(p_df, 'has_tech_repl'), is_log2 = TRUE)
+}
+
+# remove samples from data
+remove_samples <- function(p_df, samples) {
+  # check inputs
+  p_df <- validate_proteomics_data(p_df)
+  
+  # filter data
+  p_df <- p_df %>%
+    filter(!label %in% samples)
+  # filter annotation
+  annotation <- attr(p_df, 'annotation') %>%
+    filter(!label %in% samples)
+  
+  proteomics_data(
+    p_df, annotation,
     has_tech_repl = attr(p_df, 'has_tech_repl'), is_log2 = TRUE)
 }
 
