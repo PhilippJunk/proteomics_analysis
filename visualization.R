@@ -49,6 +49,8 @@ vis_qc_scatter <- function(p_df) {
     pull(label) %>%
     unique %>%
     sort
+  min_LFQ <- min(p_df$LFQ)
+  max_LFQ <- max(p_df$LFQ)
   
   expand_grid(l1 = labels, l2 = labels) %>%
     pmap(function(l1, l2) {
@@ -58,11 +60,16 @@ vis_qc_scatter <- function(p_df) {
       df2 <- p_df %>%
         filter(label == l2) %>%
         rename(LFQ_2 = LFQ)
-      inner_join(df1, df2, by='id') %>%
+      df <- inner_join(df1, df2, by='id') 
+      corr_LFQ <- cor(df$LFQ_1, df$LFQ_2) %>%
+        round(2)
+      df %>%
         ggplot(aes(x = LFQ_2, y = LFQ_1)) +
           geom_point() +
+          scale_x_continuous(limits = c(min_LFQ, max_LFQ)) +
+          scale_y_continuous(limits = c(min_LFQ, max_LFQ)) +
           geom_abline(slope=1, intercept=0) +
-          labs(x = l2, y = l1)
+          labs(title = str_glue('cor: {corr_LFQ}'), x = l2, y = l1)
     }) %>%
     wrap_plots(ncol = length(labels), nrow = length(labels), byrow=T)
 }
