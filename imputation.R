@@ -68,6 +68,7 @@ imputation <- function(
   mx <- df_wide %>%
     select(where(is.numeric)) %>%
     as.matrix
+  cols <- mx %>% colnames
   annotation <- attr(p_df, 'annotation')
 
   # perform imputation
@@ -75,7 +76,6 @@ imputation <- function(
     mx_imput <- MsCoreUtils::impute_matrix(mx, method, ...)
   } else {
     # obtain groups from data
-    cols <- mx %>% colnames
     groups <- annotation$group[order(match(annotation$label, cols))]
     if (method == 'mixed_row') {
       # calculate MAR vector
