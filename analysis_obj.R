@@ -244,6 +244,24 @@ remove_samples <- function(p_df, samples) {
     has_tech_repl = attr(p_df, 'has_tech_repl'), is_log2 = TRUE)
 }
 
+# remove groups from data
+remove_groups <- function(p_df, groups) {
+  # check inputs
+  p_df <- validate_proteomics_data(p_df)
+  
+  # filter data
+  p_df <- p_df %>%
+    join_annotation %>%
+    filter(!group %in% groups)
+  # filter annotation
+  annotation <- attr(p_df, 'annotation') %>%
+    filter(!group %in% groups)
+  
+  proteomics_data(
+    p_df, annotation,
+    has_tech_repl = attr(p_df, 'has_tech_repl'), is_log2 = TRUE)
+}
+
 deconstruct_groups <- function(p_df) {
   # check inputs
   p_df <- validate_proteomics_data(p_df)
